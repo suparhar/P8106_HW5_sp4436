@@ -1,0 +1,170 @@
+---
+title: "P8106_HW5_sp4436"
+author: "Sukhman Parhar"
+date: "2026-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(caret)
+library(tidymodels)
+library(kernlab)
+library(e1071)
+library(ISLR)
+library(factoextra)
+library(gridExtra)
+```
+
+### Question 1
+
+#### Clean the data
+
+```{r}
+# Load in the data 
+auto <- read_csv("auto.csv") %>% 
+  na.omit() %>% 
+  as.data.frame()
+
+# Remove cars with 3 cylinders
+auto <- auto[auto$cylinders != 3, ]
+
+# Convert Outcome (mpg_cat) to factor
+auto$mpg_cat <- factor(auto$mpg_cat)
+
+# Convert Origin to factor 
+auto$origin <- as.factor(auto$origin)
+
+#summary(auto)
+```
+
+#### Split the data
+
+```{r}
+set.seed(2)
+
+split <- initial_split(auto, prop = 0.7)
+
+train_data <- training(split)
+test_data  <- testing(split)
+
+# set up cross validation control
+ctrl <- trainControl(method = "cv", number = 10,
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+```
+
+#### Part A: Fit a support vector classifier (SVC) to the training data. What are the training and
+test error rates?
+
+```{r}
+set.seed(2)
+
+# Support vector classifier: linear kernel
+linear.tune <- tune.svm(mpg_cat ~ .,
+                        data = train_data,
+                        kernel = "linear",
+                        cost = exp(seq(-5, 2, len = 50)),
+                        scale = TRUE)
+
+plot(linear.tune, highlight = TRUE, xTrans = log)
+best.linear <- linear.tune$best.model
+
+pred.linear.train <- predict(best.linear, newdata = train_data)
+pred.linear.test  <- predict(best.linear, newdata = test_data)
+
+mean(pred.linear.train != train_data$mpg_cat)
+
+svc.test.error <- mean(pred.linear.test != test_data$mpg_cat)
+svc.test.error
+```
+
+##### Training and test error
+Training error = 0.06642066
+Test error = 0.08547009
+
+#### Part B: Fit a support vector machine (SVM) with a radial kernel to the training data. What
+are the training and test error rates?
+
+##### Tuning Grid
+
+```{r}
+svmr.grid = expand.grid(C = exp(seq(1, 7, len = 50)),
+                        sigma = exp(seq(-10, -2, len = 20)))
+```
+
+##### Tune
+
+```{r}
+set.seed(2)
+
+svmr.fit = train(mpg_cat ~ . ,
+                 data = train_data,
+                 method = "svmRadialSigma",
+                 tuneGrid = svmr.grid,
+                 trControl = ctrl)
+
+myCol = rainbow(25)
+myPar = list(superpose.symbol = list(myCol),
+             superpose.line = list(col = myCol))
+
+plot(svmr.fit, highlight = TRUE, par.settings = myPar)
+
+svmr.fit$bestTune
+
+confusionMatrix(svmr.fit)
+
+pred.train.rad <- predict(svmr.fit, newdata = train_data)
+pred.test.rad  <- predict(svmr.fit, newdata = test_data)
+
+train.error.rad <- mean(pred.train.rad != train_data$mpg_cat)
+test.error.rad  <- mean(pred.test.rad  != test_data$mpg_cat)
+
+train.error.rad
+test.error.rad
+```
+
+##### Training and test error
+Training error = 0.05535055
+Test error = 0.05982906
+
+#### Part C: Compare the performance of the above models with boosting. Do SVC or SVM
+provide better predictive performance on this dataset?
+
+```{r}
+gbmA.grid = expand.grid(n.trees = c(100, 200, 500, 1000, 2000, 5000, 10000),
+                        interaction.depth = 1:5,
+                        shrinkage = c(0.005, 0.007, 0.009),
+                        n.minobsinnode = 10)
+
+set.seed(2)
+
+gbmA.fit = train(mpg_cat ~ . ,
+                 train_data,
+                 tuneGrid = gbmA.grid,
+                 trControl = ctrl,
+                 method = "gbm",
+                 distribution = "adaboost",
+                 metric = "Accuracy",
+                 verbose = FALSE)
+
+ggplot(gbmA.fit, highlight = TRUE)
+
+pred.gbm.train <- predict(gbmA.fit, newdata = train_data)
+pred.gbm.test  <- predict(gbmA.fit, newdata = test_data)
+
+train.error.gbm <- mean(pred.gbm.train != train_data$mpg_cat)
+test.error.gbm  <- mean(pred.gbm.test  != test_data$mpg_cat)
+
+train.error.gbm
+test.error.gbm
+```
+
+```{r}
+svc.test.error
+test.error.rad
+test.error.gbm
+```
+
