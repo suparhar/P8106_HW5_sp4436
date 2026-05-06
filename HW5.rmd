@@ -49,9 +49,7 @@ train_data <- training(split)
 test_data  <- testing(split)
 
 # set up cross validation control
-ctrl <- trainControl(method = "cv", number = 10,
-                     summaryFunction = twoClassSummary,
-                     classProbs = TRUE)
+ctrl <- trainControl(method = "cv")
 ```
 
 ### Question 1
@@ -130,7 +128,7 @@ test.error.rad
 
 ##### Training and test error
 
-Training error = 0.05535055 Test error = 0.05982906
+Training error = 0.05904059 Test error = 0.07692308
 
 #### Part C: Compare the performance of the above models with boosting. Do SVC or SVM provide better predictive performance on this dataset?
 
@@ -189,7 +187,8 @@ test.error.gbm
 ```
 
 ### 
-The support vector classifier had a test error rate of 0.0855, while the radial kernel support vector machine achieved a lower test error rate of 0.0598. The boosting model had a test error rate of 0.0598. Because of this radial kernel SVM and boosting had the best predictive performance on this dataset as they tied for the lowest test error rate. The radial kernel SVM outperformed the linear support vector classifier, suggesting that a nonlinear decision boundary better captured the relationship between the predictors and the outcome.
+The support vector classifier had a test error rate of 0.0855, while both the radial kernel support vector machine and the boosting model achieved lower test error rates of 0.0769. Therefore, the radial kernel SVM and boosting demonstrated the best predictive performance on this dataset, as they tied for the lowest test error rate. In the cross-validation results, boosting also achieved the highest mean accuracy (0.9449) and highest mean kappa value (0.8897), while the radial kernel SVM also showed strong overall classification performance with a mean accuracy of 0.9304 and mean kappa of 0.8604. The radial kernel SVM outperformed the linear support vector classifier, suggesting that a nonlinear decision boundary better captured the relationship between the predictors and the outcome. Overall, both boosting and the radial kernel SVM demonstrated stronger predictive performance than the linear support vector classifier.
+
 
 ### Question 2
 
