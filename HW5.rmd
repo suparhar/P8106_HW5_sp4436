@@ -18,8 +18,6 @@ library(factoextra)
 library(gridExtra)
 ```
 
-### Question 1
-
 #### Clean the data
 
 ```{r}
@@ -56,8 +54,9 @@ ctrl <- trainControl(method = "cv", number = 10,
                      classProbs = TRUE)
 ```
 
-#### Part A: Fit a support vector classifier (SVC) to the training data. What are the training and
-test error rates?
+### Question 1
+
+#### Part A: Fit a support vector classifier (SVC) to the training data. What are the training and test error rates?
 
 ```{r}
 set.seed(2)
@@ -82,11 +81,10 @@ svc.test.error
 ```
 
 ##### Training and test error
-Training error = 0.06642066
-Test error = 0.08547009
 
-#### Part B: Fit a support vector machine (SVM) with a radial kernel to the training data. What
-are the training and test error rates?
+Training error = 0.06642066 Test error = 0.08547009
+
+#### Part B: Fit a support vector machine (SVM) with a radial kernel to the training data. What are the training and test error rates?
 
 ##### Tuning Grid
 
@@ -112,6 +110,10 @@ myPar = list(superpose.symbol = list(myCol),
 
 plot(svmr.fit, highlight = TRUE, par.settings = myPar)
 
+plot(svmr.fit, transform.y = log, transform.x = log,
+color.palette = terrain.colors)
+
+
 svmr.fit$bestTune
 
 confusionMatrix(svmr.fit)
@@ -127,11 +129,10 @@ test.error.rad
 ```
 
 ##### Training and test error
-Training error = 0.05535055
-Test error = 0.05982906
 
-#### Part C: Compare the performance of the above models with boosting. Do SVC or SVM
-provide better predictive performance on this dataset?
+Training error = 0.05535055 Test error = 0.05982906
+
+#### Part C: Compare the performance of the above models with boosting. Do SVC or SVM provide better predictive performance on this dataset?
 
 ```{r}
 gbmA.grid = expand.grid(n.trees = c(100, 200, 500, 1000, 2000, 5000, 10000),
@@ -151,6 +152,7 @@ gbmA.fit = train(mpg_cat ~ . ,
                  verbose = FALSE)
 
 ggplot(gbmA.fit, highlight = TRUE)
+gbmA.fit$bestTune
 
 pred.gbm.train <- predict(gbmA.fit, newdata = train_data)
 pred.gbm.test  <- predict(gbmA.fit, newdata = test_data)
@@ -163,8 +165,107 @@ test.error.gbm
 ```
 
 ```{r}
+# Rerun so we can use Resamp
+set.seed(2)
+
+svml.fit <- train(mpg_cat ~ .,
+                  data = train_data,
+                  method = "svmLinear2",
+                  tuneGrid = data.frame(cost = linear.tune$best.parameters$cost),
+                  trControl = ctrl)
+```
+
+```{r}
+# Compare cross-validation performance
+resamp <- resamples(list(SVC = svml.fit,
+                         SVM_radial = svmr.fit,
+                         Boosting = gbmA.fit))
+
+summary(resamp)
+
 svc.test.error
 test.error.rad
 test.error.gbm
 ```
 
+### 
+The support vector classifier had a test error rate of 0.0855, while the radial kernel support vector machine achieved a lower test error rate of 0.0598. The boosting model had a test error rate of 0.0598. Because of this radial kernel SVM and boosting had the best predictive performance on this dataset as they tied for the lowest test error rate. The radial kernel SVM outperformed the linear support vector classifier, suggesting that a nonlinear decision boundary better captured the relationship between the predictors and the outcome.
+
+### Question 2
+
+#### Part A: Using hierarchical clustering with complete linkage and Euclidean distance, cluster the states. Cut the dendrogram at a height that results in three distinct clusters. Which states belong to which clusters?
+
+```{r}
+# Load the data
+data(USArrests)
+
+# Hierarchical clustering with complete linkage
+hc.complete <- hclust(dist(USArrests), method = "complete")
+
+# Plot dendrogram
+plot(hc.complete)
+
+# Cut into 3 clusters
+clusters <- cutree(hc.complete, 3)
+
+# Show cluster membership
+clusters
+
+# States by cluster
+split(names(clusters), clusters)
+
+fviz_dend(hc.complete,
+          k = 3,
+          cex = 0.6,
+          rect = TRUE,
+          rect_fill = TRUE)
+```
+
+###
+The three clutsters were:
+
+**Cluster 1**: Alabama, Alaska, Arizona, California, Delaware, Florida, Illinois, Louisiana, Maryland, Michigan, Mississippi, Nevada, New Mexico, New York, North Carolina, and South Carolina.
+
+**Cluster 2**: Arkansas, Colorado, Georgia, Massachusetts, Missouri, New Jersey, Oklahoma, Oregon, Rhode Island, Tennessee, Texas, Virginia, Washington, and Wyoming.
+
+**Cluster 3**: Connecticut, Hawaii, Idaho, Indiana, Iowa, Kansas, Kentucky, Maine, Minnesota, Montana, Nebraska, New Hampshire, North Dakota, Ohio, Pennsylvania, South Dakota, Utah, Vermont, West Virginia, and Wisconsin.
+
+#### Part B
+
+```{r}
+# Scale the vars
+scaled = scale(USArrests)
+
+hc.complete.scale = hclust(dist(scaled), method = "complete")
+
+fviz_dend(hc.complete.scale, k = 3,
+          cex = 0.5,
+          palette = "jco",
+          color_labels_by_k = TRUE,
+          rect = TRUE,
+          rect_fill = TRUE,
+          rect_border = "jco",
+          labels_track_height = 1.5)
+
+# Cut into 3 clusters
+clusters <- cutree(hc.complete.scale, 3)
+
+# Show cluster membership
+clusters
+
+# States by cluster
+split(names(clusters), clusters)
+```
+
+###
+The three scaled clutsters were:
+
+**Cluster 1**: Alabama, Alaska, Georgia, Louisiana, Mississippi, North Carolina, South Carolina, and Tennessee.
+
+**Cluster 2**: Arizona, California, Colorado, Florida, Illinois, Maryland, Michigan, Nevada, New Mexico, New York, and Texas.
+
+**Cluster 3**: Arkansas, Connecticut, Delaware, Hawaii, Idaho, Indiana, Iowa, Kansas, Kentucky, Maine, Massachusetts, Minnesota, Missouri, Montana, Nebraska, New Hampshire, New Jersey, North Dakota, Ohio, Oklahoma, Oregon, Pennsylvania, Rhode Island, South Dakota, Utah, Vermont, Virginia, Washington, West Virginia, Wisconsin, and Wyoming.
+
+Scaling the variables did change the cluster results. 
+
+I also do believe that the variables should be scaled before the inter-observation dissimilarities are computed. By scaling we make sure that each variable contributes more equally to the Euclidean distance calculation and prevents variables with larger magnitudes or variances from dominating the clustering process. In the USArrests dataset, variables such as Assault are measured on a  larger scale than variables like Murder, so without scaling, the Euclidean distance calculations are driven primarily by Assault. This causes assault to dominate the clustering differences while other smaller scale variables are ignored. After scaling, the variables are standardized and placed on equal footing, allowing each feature to contribute more fairly to the clustering procedure. 
